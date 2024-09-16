@@ -1,0 +1,75 @@
+---
+title: "HW1"
+date: today
+author: Kai-Chien Chen
+format:
+ pdf:
+    include-in-header:
+      - text: |
+         \usepackage{setspace,relsize}
+mainfont: "Microsoft JhengHei UI"
+toc: true
+---
+
+# Import Data
+
+```{r}
+# install.packages("palmerpenguins")
+library(palmerpenguins)
+```
+
+```{r}
+data <- penguins_raw
+head(data)
+```
+
+# Summary Statistics
+
+```{r}
+#| output: asis
+library(Hmisc)
+latex(describe(data), file = "", caption.placement = "top")
+```
+
+# Missing value
+
+```{r}
+#| output: asis
+library(Hmisc)
+library(DataExplorer)
+plot_missing(data)
+```
+
+# Some Plots
+
+體重之直方圖
+
+```{r}
+library(ggplot2)
+ggplot(data, aes(x = `Body Mass (g)`)) +
+  geom_histogram(binwidth = 100, fill = "lightblue", color = "black") +
+  labs(title = "Histogram of Body Mass", x = "Body Mass (g)", y = "Frequency")
+
+```
+
+依物種做箱型圖
+```{r}
+ggplot(data, aes(x = Species, y = `Body Mass (g)`, fill = Species)) +
+  geom_boxplot() +
+  labs(title = "Boxplot of Body Mass by Species", y = "Body Mass (g)")
+
+```
+相關性分析
+```{r}
+library(dplyr)
+# 計算相關性矩陣
+numeric_vars <- c("Culmen Length (mm)", "Culmen Depth (mm)", "Flipper Length (mm)", "Body Mass (g)", "Delta 15 N (o/oo)", "Delta 13 C (o/oo)")
+
+correlation_matrix <- cor(data %>% select(all_of(numeric_vars)), use = "complete.obs")
+
+# 顯示相關性矩陣
+library(corrplot)
+corrplot(correlation_matrix, method = "circle")
+
+```
+
