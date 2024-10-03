@@ -1,0 +1,228 @@
+---
+title: "HW2"
+date: today
+author: Kai-Chien Chen
+format:
+ pdf:
+    include-in-header:
+      - text: |
+         \usepackage{setspace,relsize}
+mainfont: "Microsoft JhengHei UI"
+toc: true
+---
+
+# Question 2
+
+## Data Import
+
+```{r}
+setwd("C:/Users/user/Desktop/教科書/4-1(113-1)/stat_consult/HW2")
+library(dplyr)
+library(readxl)
+library(knitr)
+# Read the dataset (adjust the path as necessary)
+file_path <- "cleaned_dataset.xlsx"
+data <- read_excel(file_path)
+
+# View the first few rows of the data to understand its structure
+kable(head(data),caption = "head of data")
+
+```
+
+## 把v4中有提及3號候選人的資料挑出
+
+```{r}
+library(showtext)
+
+# Enable showtext to use system fonts
+showtext_auto()
+
+# Filter data related to Candidate 3
+candidate_3_data <- data %>%
+  filter(grepl("3號", v4_1) | grepl("3號", v4_2) | grepl("3號", v4_3))
+
+# Group by region and summarize the support count for Candidate 3
+support_by_region <- candidate_3_data %>%
+  group_by(v1) %>%
+  summarize(count = n())
+kable(support_by_region, caption = "Table of support by region")
+# Group by age and summarize the support count for Candidate 3
+support_by_age <- candidate_3_data %>%
+  group_by(v6) %>%
+  summarize(count = n())
+kable(support_by_age, caption = "Table of support by age")
+
+# Group by gender and summarize the support count for Candidate 3
+support_by_gender <- candidate_3_data %>%
+  group_by(v8) %>%
+  summarize(count = n())
+kable(support_by_gender, caption = "Table of support by gender")
+
+# Group by education and summarize the support count for Candidate 3
+support_by_education <- candidate_3_data %>%
+  group_by(v7) %>%
+  summarize(count = n())
+kable(support_by_education, caption = "Table of support by education")
+
+#plot 
+library(ggplot2)
+ggplot(support_by_region, aes(x = v1, y = count)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  labs(x = "Region", y = "Count", title = "Barplot of Region Counts") +
+  theme_minimal()
+ggplot(support_by_age, aes(x = v6, y = count)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  labs(x = "age", y = "Count", title = "Barplot of age Counts") +
+  theme_minimal()
+ggplot(support_by_education, aes(x = v7, y = count)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  labs(x = "education", y = "Count", title = "Barplot of education Counts") +
+  theme_minimal()
+ggplot(support_by_gender, aes(x = v8, y = count)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  labs(x = "gender", y = "Count", title = "Barplot of gender Counts") +
+  theme_minimal()
+
+```
+
+從上方之表和圖可以發現知道3號候選人有一些地區上和年齡上的差異。
+
+## Chi-squre test
+
+### 性別與地區
+```{r}
+
+####################chi-square test##############
+# 建立性別與地區的交叉表
+gender_region <- table(candidate_3_data$v8, candidate_3_data$v1)
+
+# 檢視交叉表
+kable(gender_region,caption ="性別與地區的交叉表")
+# 執行卡方檢定 (性別與支持的關聯性)
+chi_g_r <- chisq.test(gender_region)
+
+# 顯示檢定結果
+print(chi_g_r)
+
+```
+
+從上方的chi-square test 中可以發現其p-value$>0.05$，因此不拒絕虛無假設(地區與性別獨立)，
+
+這代表在知道3號候選人的人們中，候選人不需要因為地區之不同後改變針對性別相關議題的策略。
+
+### 年齡與地區
+```{r}
+
+###
+# 建立年齡與地區的交叉表
+age_region <- table(candidate_3_data$v6, candidate_3_data$v1)
+
+
+# 檢視交叉表
+kable(age_region,caption = "年齡與地區的交叉表")
+# 執行卡方檢定 (年齡與地區的關聯性)
+chi_a_r <- chisq.test(age_region)
+
+# 顯示檢定結果
+kable(chi_a_r$expected,caption = "各分類之期望值")
+```
+
+從Table 8來看，有些地方期望值無大於5，因此重新分類，將20-39歲的定義為年輕人，40-59歲定義為中年人和60歲以上定義為老年人。
+
+```{r}
+# 將年齡組別進行合併
+candidate_3_data_1 <- candidate_3_data %>%
+  mutate(age_group = case_when(
+    v6 %in% c("20-29歲", "30-39歲") ~ "年輕人",
+    v6 %in% c("40-49歲", "50-59歲") ~ "中年人",
+    v6 == "60歲及以上" ~ "老年人",
+    TRUE ~ v6  # 保持其他情況不變
+  ))
+
+# 建立合併後的年齡與地區的交叉表
+age_region_combined <- table(candidate_3_data_1$age_group, candidate_3_data_1$v1)
+
+# 檢視交叉表
+kable(age_region_combined,caption = "年齡與地區的交叉表")
+
+# 重新執行卡方檢定
+chi_a_r_combined <- chisq.test(age_region_combined)
+
+# 顯示檢定結果
+print(chi_a_r_combined) #p-value<0.05，拒絕H0，認識3號的地區和年齡有關。
+
+# 檢視期望頻數
+kable(chi_a_r_combined$expected,caption = "各分類之期望值")
+
+library(ggplot2)
+
+# 將交叉表轉換為數據框
+age_region_df <- as.data.frame(age_region_combined)
+
+# 創建條形圖來比較各地區的年齡層支持
+ggplot(age_region_df, aes(Var1, Freq, fill = Var2)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "地區與年齡層知名度比較", x = "年齡層", y = "知名度", fill = "地區")
+```
+
+因為不知道/拒答的比例不高，將其省略，而從卡方檢定、交叉表和各分類之期望
+值可以得到以下結論:
+
+-   **卡方檢定**:
+    -   從結果可知其拒絕虛無假設，代表年齡層和地區是有相關的。
+    
+-   **中西區**：
+
+    -   **老年人**：實際支持 61 人，明顯高於期望支持數 47.53。這說明 60 歲及以上的
+    年齡層在中西區的支持較強，應著重針對這個群體進行宣傳。
+
+    -   **中年人**：實際支持 25 人，低於期望支持數 35.65。這個年齡層的支持度低於預期
+    ，可能需要加強宣傳。
+
+    -   **年輕人**：實際支持 4 人，略低於期望支持數 6.38。這個年齡層的支持者數量較少，
+    但差異不大，應視資源投入情況決定是否加強針對這個群體的宣傳。
+
+-   **北區**：
+
+    -   **老年人**：實際支持 155 人，略低於期望支持數 168.47。這個年齡層支持度仍然
+    相當高，但有些低於期望，可能需要進一步鞏固這個群體的支持。
+
+    -   **中年人**：實際支持 137 人，高於期望支持數 126.35，這表明這個年齡層對候選人
+    的支持較高，可以維持此群體的宣傳。
+
+    -   **年輕人歲**：實際支持 25 人，高於期望支持數 22.62，這表明這個年齡層的支持略高於
+    期望，可以考慮繼續關注。
+    
+### 性別與年齡
+```{r}
+
+###
+# 建立性別與年齡的交叉表
+gender_age <- table(candidate_3_data$v8, candidate_3_data$v6)
+
+# 檢視交叉表
+kable(gender_age,caption = "性別與地區之交叉表")
+# 執行卡方檢定 (性別與地區的關聯性)
+chi_g_a <- chisq.test(gender_age)
+
+# 顯示檢定結果
+kable(chi_g_a$expected,caption = "性別與地區之期望值")
+
+# 建立合併後的年齡與性別的交叉表
+age_gender_combined <- table(candidate_3_data_1$age_group, candidate_3_data_1$v8)
+
+# 檢視交叉表
+kable(age_gender_combined,caption = "性別與地區之交叉表")
+
+# 重新執行卡方檢定
+chi_a_g_combined <- chisq.test(age_gender_combined)
+
+# 顯示檢定結果
+print(chi_a_g_combined) 
+
+# 檢視期望頻數
+kable(chi_a_g_combined$expected,caption = "年齡與性別的交叉表之期望值")
+
+```
+做與地區和年齡層的卡方檢定的一樣動作，而從上方的表和檢定可知其檢定結果不拒絕虛無
+假設，也就是說在知道3號候選人的樣本中性別和年齡層為獨立的。
