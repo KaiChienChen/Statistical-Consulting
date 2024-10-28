@@ -1,7 +1,7 @@
 ---
-title: "HW4_1"
+title: "HW4"
 date: today
-author: 陳凱騫
+author: 第六組(林智達_H24095031_江泰佳_H24106086_陳凱騫 H24101222)
 format:
  pdf:
     include-in-header:
