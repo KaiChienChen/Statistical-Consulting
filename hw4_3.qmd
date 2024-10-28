@@ -94,7 +94,7 @@ table1(~.|v5,data_nom)
 ```{r}
 data5 <- data_new
 data5[is.na(data5$v5),] <- "遺失"
-barplot(table(data5$v5),xlab="候選人",ylab="支持的人數",main = "各候選人支持人數直條圖")
+barplot(table(data5$v5),xlab="候選人",ylab="支持的人數",main = "各候選人支持人數直條圖",ylim = c(0,220))
   #總人數
 num <- length(data_nom$v5)
 barplot(table(data_nom$v5)/num,ylim=c(0,0.3),xlab="候選人",ylab="支持比率",
