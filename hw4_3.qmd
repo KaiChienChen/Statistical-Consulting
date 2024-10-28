@@ -1,0 +1,502 @@
+---
+title: "HW4_1"
+date: today
+author: 陳凱騫
+format:
+ pdf:
+    include-in-header:
+      - text: |
+         \usepackage{setspace,relsize}
+         \usepackage{geometry}
+         \geometry{verbose,tmargin=2.5cm,bmargin=2.5cm,lmargin=2.5cm,rmargin=2.5cm}
+mainfont: "Microsoft JhengHei UI"
+toc: FALSE
+lang: zh-Tw
+documentclass: article
+pdf-engine: xelatex
+execute:
+  tidy: true
+---
+
+## 第一題
+
+```{r setup, include=FALSE}
+library(showtext)
+showtext_auto()
+par(family = "STKaiti")
+```
+
+```{r}
+library(foreign)
+library(Hmisc)
+library(table1)
+library(DataExplorer)
+library(knitr)
+library(dplyr)
+#Sys.setlocale("LC_ALL","Chinese (Traditional)_Taiwan.950")
+```
+進行資料讀取與基本資料解析
+
+```{r}
+data <- read.spss("poll.sav")
+data <- data.frame(data)
+```
+```{r}
+#| output: asis
+latex(describe(data),file="", caption.placement = "top")
+```
+
+將"遺漏值或跳答"改為遺漏值，並以回答數(v4的總和)作為政治熱衷程度(以新變
+量"v4"代表)。
+v2與v3可以合併為一個變數，因為都是區底下的里，且不會出現交集。
+
+```{r}
+data[data=="遺漏值或跳答"] <- NA
+v4 <- rowSums(!is.na(subset(data,select=c(v4_1,v4_2,v4_3,v4_4,v4_5,v4_6,v4_7,v4_8))))
+data_new <- cbind(subset(data,select=-c(v4_1,v4_2,v4_3,v4_4,v4_5,v4_6,v4_7,v4_8)),v4)
+v9 <- coalesce(data_new$v2, data_new$v3)
+data_new <- cbind(subset(data_new,select=-c(v2,v3)),v9)
+data_new <- data_new %>%
+  select(v1,v9,v4,v5,v6,v7,v8)
+# head(data_new,n=20)
+```
+
+進行table 1 繪製。
+
+```{r}
+table1(~.|v1,data_new)
+```
+遺失值，先定義每一個變量的遺失定義(使用summary/table找出可能的遺失選項)。
+
+```{r}
+discrip <- data.frame(variable=c("v1(區)、v4(熱衷度)、v8(性別)","v9(里)","v5(支持)",
+                                 "v6(年紀)","v7(學歷)"),
+                      discription=c("不會出現遺失值","不知道、拒答","無反應、尚未決定、91",
+                                    "不知道╱拒答","拒答"))
+  #table(data_new$v5)
+kable(discrip,caption="遺失選項")
+data_new[data_new$v9=="不知道"|data_new$v9=="拒答",]$v9 <- NA
+data_new[data_new$v5=="無反應"|data_new$v5=="尚未決定"|data_new$v5==91,]$v5 <- NA
+data_new[data_new$v6=="不知道╱拒答",]$v6<- NA
+data_new[data_new$v7=="拒答",]$v7 <- NA
+plot_missing(data_new)
+```
+分析所有候選人的支持者分析。
+
+## 第二題
+
+```{r}
+data_nom <- data_new[!is.na(data_new$v5),]
+table1(~.|v5,data_nom)
+```
+以直條圖表示支持人數與支持率。
+
+```{r}
+data5 <- data_new
+data5[is.na(data5$v5),] <- "遺失"
+barplot(table(data5$v5),xlab="候選人",ylab="支持的人數",main = "各候選人支持人數直條圖")
+  #總人數
+num <- length(data_nom$v5)
+barplot(table(data_nom$v5)/num,ylim=c(0,0.3),xlab="候選人",ylab="支持比率",
+        main="各候選人支持比率直條圖")
+```
+## 第三題
+
+```{r}
+library(showtext)
+
+# Enable showtext to use system fonts
+showtext_auto()
+# install.packages("foreign")
+library(foreign, help, pos = 2, lib.loc = NULL)
+data1 <- read.spss("poll.sav")
+levels(data1$v4_1)
+class(data1$v4_1)
+levels(data1$v5)
+data1 <- as.data.frame(data1)
+class(data1$v4_1)
+```
+
+### 清洗資料
+
+了解每個variables中有那些結果，並把無確切答案的設成NA
+
+```{r}
+levels(data1$v1)
+levels(data1$v2)
+levels(data1$v3)
+levels(data1$v6)
+levels(data1$v7)
+levels(data1$v8)
+
+```
+
+```{r}
+data1$v1 <- replace(data1$v1, data1$v1 %in% c("拒答/戶籍不在臺南市以上幾區/家中無有投票權的人", "遺漏值或跳答"), NA)
+data1$v2 <- replace(data1$v2, data1$v2 %in% c("遺漏值或跳答"), NA)
+data1$v3 <- replace(data1$v3, data1$v3 %in% c("遺漏值或跳答"), NA)
+
+# 手動替換特定變數中的 "無反應", "91", "遺漏值或跳答"
+data1$v4_1 <- replace(data1$v4_1, data1$v4_1 %in% c("無反應", "91", "遺漏值或跳答"), NA)
+data1$v4_2 <- replace(data1$v4_2, data1$v4_2 %in% c("無反應", "91", "遺漏值或跳答"), NA)
+data1$v4_3 <- replace(data1$v4_3, data1$v4_3 %in% c("無反應", "91", "遺漏值或跳答"), NA)
+data1$v4_4 <- replace(data1$v4_4, data1$v4_4 %in% c("無反應", "91", "遺漏值或跳答"), NA)
+data1$v4_5 <- replace(data1$v4_5, data1$v4_5 %in% c("無反應", "91", "遺漏值或跳答"), NA)
+data1$v4_6 <- replace(data1$v4_6, data1$v4_6 %in% c("無反應", "91", "遺漏值或跳答"), NA)
+data1$v4_7 <- replace(data1$v4_7, data1$v4_7 %in% c("無反應", "91", "遺漏值或跳答"), NA)
+data1$v4_8 <- replace(data1$v4_8, data1$v4_8 %in% c("無反應", "91", "遺漏值或跳答"), NA)
+
+# 手動替換特定變數中的 "無反應", "91", "尚未決定"
+
+data1$v5 <- replace(data1$v5, data1$v5 %in% c("無反應", "91", "尚未決定"), NA)
+head(data1$v4_1)
+
+data1$v6 <- replace(data1$v6, data1$v6 %in% c("不知道╱拒答","遺漏值或跳答"), NA)
+data1$v7 <- replace(data1$v7, data1$v7 %in% c("拒答","遺漏值或跳答"), NA)
+data1$v8 <- replace(data1$v8, data1$v8 %in% c("遺漏值或跳答"), NA)
+
+```
+
+```{r}
+######## missing data
+# install.packages("DataExplorer")
+
+library(Hmisc)
+library(DataExplorer)
+plot_missing(data1)
+v5 <- as.character(data1$v5)
+describe(v5)
+# 將 v5 包裹在一個資料框中進行繪圖
+# 檢查 v5 中的缺失值
+describe(data1$v5)
+```
+
+從上圖可了解除了v4以外，其餘缺失值並不多。
+
+### 支持3號的資料
+
+接著我們用支持3號的資料和不支持3號的資料做卡方檢定，看在地區、性別等等變數上面是否有顯著關聯。
+
+```{r}
+library(dplyr)
+library(knitr)
+library(ggplot2)
+# Filter the data for candidate 3
+candidate_3 <- data1 %>% filter(v5 == "(3號)")
+
+# Analyze support by region
+support_by_region <- candidate_3 %>% count(v1)
+
+# Analyze support by age group
+support_by_age <- candidate_3 %>% count(v6)
+
+# Analyze support by gender
+support_by_gender <- candidate_3 %>% count(v8)
+
+# Print the results
+# 使用 ggplot2 繪製長條圖
+ggplot(support_by_region, aes(x = v1, y = n)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  labs(title = "3號候選人按地區的支持度",
+       x = "地區",
+       y = "支持人數") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))  # 若地區名稱較長，可以旋轉X軸標籤
+# 使用 ggplot2 繪製性別支持的長條圖
+ggplot(support_by_gender, aes(x = v8, y = n)) +
+  geom_bar(stat = "identity", fill = "lightgreen") +
+  labs(title = "3號候選人按性別的支持度",
+       x = "性別",
+       y = "支持人數") +
+  theme_minimal()
+# 使用 ggplot2 繪製年齡組別支持的長條圖
+ggplot(support_by_age, aes(x = v6, y = n)) +
+  geom_bar(stat = "identity", fill = "skyblue") +
+  labs(title = "3號候選人按年齡組別的支持度",
+       x = "年齡組別",
+       y = "支持人數") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+### 不支持3號的資料
+
+```{r}
+Notcandidate_3 <- data1 %>% filter(v5 != "(3號)")
+
+# Analyze support by region
+Nsupport_by_region <- Notcandidate_3 %>% count(v1)
+
+# Analyze support by age group
+Nsupport_by_age <- Notcandidate_3 %>% count(v6)
+
+# Analyze support by gender
+Nsupport_by_gender <- Notcandidate_3 %>% count(v8)
+
+# Print the results
+# 使用 ggplot2 繪製長條圖
+ggplot(Nsupport_by_region, aes(x = v1, y = n)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  labs(title = "3號候選人按地區的不支持度",
+       x = "地區",
+       y = "支持人數") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))  # 若地區名稱較長，可以旋轉X軸標籤
+# 使用 ggplot2 繪製性別支持的長條圖
+ggplot(Nsupport_by_gender, aes(x = v8, y = n)) +
+  geom_bar(stat = "identity", fill = "lightgreen") +
+  labs(title = "3號候選人按性別的不支持度",
+       x = "性別",
+       y = "支持人數") +
+  theme_minimal()
+# 使用 ggplot2 繪製年齡組別支持的長條圖
+ggplot(Nsupport_by_age[-6,], aes(x = v6, y = n)) +
+  geom_bar(stat = "identity", fill = "skyblue") +
+  labs(title = "3號候選人按年齡組別的不支持度",
+       x = "年齡組別",
+       y = "支持人數") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+```
+
+### 卡方檢定
+
+**地區的卡方檢定:**
+```{r}
+# 創建列聯表並進行卡方檢定
+# 支持3號的地區
+support_region_table <- table(candidate_3$v1)
+Nsupport_region_table <- table(Notcandidate_3$v1)
+
+# 合併數據
+region_table <- rbind(support_region_table, Nsupport_region_table)
+
+# 刪除NA
+region_table <- region_table[,c(-3,-4)]
+# 卡方檢定
+chi_square_region <- chisq.test(region_table)
+print(chi_square_region)
+print(chi_square_region$observed)
+print(chi_square_region$expected)
+```
+
+**年齡的卡方檢定:**
+```{r}
+# 支持3號的年齡組
+support_age_table <- table(candidate_3$v6)
+Nsupport_age_table <- table(Notcandidate_3$v6)
+
+# 合併數據
+age_table <- rbind(support_age_table, Nsupport_age_table)
+age_table <- age_table[,c(-6,-7)]
+# 卡方檢定
+chi_square_age <- chisq.test(age_table)
+print(chi_square_age)
+print(chi_square_age$observed)
+print(chi_square_age$expected)
+```
+**性別的卡方檢定:**
+```{r}
+# 支持3號的性別
+support_gender_table <- table(candidate_3$v8)
+Nsupport_gender_table <- table(Notcandidate_3$v8)
+
+# 合併數據
+gender_table <- rbind(support_gender_table, Nsupport_gender_table)
+gender_table <- gender_table[,-3]
+# 卡方檢定
+chi_square_gender <- chisq.test(gender_table)
+print(chi_square_gender)
+print(chi_square_gender$observed)
+print(chi_square_gender$expected)
+
+```
+
+### Result
+
+根據卡方檢定的結果，我們可以為3號候選人的競選策略提出以下建議：
+
+### 1. **地區差異**
+
+-   **地區：**
+    -   卡方檢定結果顯示，3號候選人在不同地區的支持度存在顯著差異（p-value = 1.113e-06，顯著性水平0.05以下）。具體而言，3號候選人在北區（163人）相較於中西區（42人）擁有更高的支持度。
+    -   **結論：3號候選人應該重點在中西區加強拉票，因為這個區域的支持度相對較低，存在較大的增長潛力。**
+
+### 2. **年齡差異**
+
+-   **年齡組別：**
+    -   卡方檢定結果顯示，3號候選人支持者的年齡分佈與非支持者的年齡分佈沒有顯著差異（p-value = 0.8888）。這表明3號候選人的支持在不同年齡段較為平均。
+    -   **結論：年齡層次的拉票策略可以相對平均，並不需要針對特定年齡群體。但如果要進一步加強，可以考慮針對50歲以上群體（105人支持），因為這個群體是目前支持度最高的。**
+
+### 3. **性別差異**
+
+-   **性別：**
+    -   性別的卡方檢定結果顯示，支持3號候選人的性別分佈與非支持者的性別分佈無顯著差異（p-value = 0.5661）。這意味著性別並不是影響3號候選人支持的關鍵因素。
+    -   **結論：拉票策略不需要特別針對性別差異，可以在男性和女性之間均勻展開競選活動。**
+
+### 總結建議：
+
+-   **加強在中西區的競選活動**：由於3號候選人在中西區的支持率較低，應該更多地在該地區進行宣傳和動員選民。
+-   **維持對50歲及以上群體的關注**：雖然年齡分佈沒有顯著差異，但50歲以上群體對3號候選人的支持度較高，因此可以重點鞏固這部分選民。
+-   **平衡男性和女性的拉票活動**：性別不是關鍵因素，因此可以均衡地向男性和女性選民傳遞訊息。
+
+這樣的策略能夠幫助3號候選人最大化競選資源的效果，提升支持率。
+
+### 地圖
+
+使用地圖進行競選策略規劃。
+
+```{r}
+library(sf)
+#讀地圖檔
+map <- st_read("VILLAGE_NLSC_1130807.shp")
+map1 <- map[map$COUNTYNAME=="臺南市",]
+map1 <- map1[map1$TOWNNAME=="北區"|map1$TOWNNAME=="中西區",]
+```
+
+```{r}
+#將選擇三號的受訪者建立次數的dataframe
+#並把次數併入地圖檔案中，方便後續繪製
+candidate_3_data <- data[data$v5=="(3號)",]
+num <- data.frame(table(c(candidate_3_data$v2,candidate_3_data$v3)))
+num <- num[c(-33,-48,-10),]
+colnames(num) <- c("VILLNAME", "Freq")
+map1 <- merge(map1,num,by="VILLNAME",all=T)
+map1[is.na(map1)] <- 0
+```
+
+```{r}
+#分別建立北區與中西區的檔案
+library(ggplot2)
+describe(map1$Freq)
+map_N <- map1[map1$TOWNNAME=="北區",]
+map_MW <- map1[map1$TOWNNAME=="中西區",]
+```
+由兩區地圖可以看出，三號候選人在西北方有較高的支持度，尤其是在大港里。在東南部分支持者較少。
+
+```{r}
+#繪製兩區地圖
+coord <- as.data.frame(st_centroid(map1))
+f <- st_coordinates(st_centroid(map1))
+ggplot(data = map1) +
+  geom_sf(aes(fill = Freq)) +
+  scale_fill_gradient(low="white",high="red",name = "支持(3)人數",limits=c(0,23))+
+  geom_text(data = coord, aes(x = f[,1], y = f[,2], label = coord$VILLNAME), 
+          size = 1.5, color = "black", vjust =0)
+```
+從單一北區地圖可以看到北區有許多人支持三號候選人。
+
+```{r}
+#北區地圖
+coord_N <- as.data.frame(st_centroid(map_N))
+f_N <- st_coordinates(st_centroid(map_N))
+ggplot(data = map_N) +
+    geom_sf(aes(fill = Freq)) +
+    scale_fill_gradient(low="white",high="red",name = "縣市區",limits=c(0,23))+
+    geom_text(data = coord_N, aes(x = f_N[,1], y = f_N[,2], label = coord_N$VILLNAME), 
+          size = 2.2, color = "black", vjust =0)
+```
+
+從中西區地圖來看，在中西區支持三號候選人的人較少，如果想要增加影響力可以考慮往中西區進行宣傳。
+
+```{r}
+#中西區地圖
+coord_MW <- as.data.frame(st_centroid(map_MW))
+f_MW <- st_coordinates(st_centroid(map_MW))
+ggplot(data = map_MW) +
+  geom_sf(aes(fill = Freq)) +
+  scale_fill_gradient(low="white",high="red",name = "縣市區",limits=c(0,23))+
+  geom_text(data = coord_MW, aes(x = f_MW[,1], y = f_MW[,2], label = coord_MW$VILLNAME), 
+          size = 2.2, color = "black", vjust =0)
+```
+
+## 第四題
+
+### 處理v4資料
+
+```{r}
+v4 <- data1[,c(4,5,6,7,8,9,10,11)]
+head(v4)
+```
+
+```{r}
+# 將數據框中的 NA 替換為 0，將非 NA 值替換為 1
+political_engagement <- v4 %>%
+  mutate_at(vars(v4_1:v4_8), ~ifelse(is.na(.), 0, 1))
+
+# 計算每個受訪者提及的候選人數量
+political_engagement$engagement_score <- rowSums(political_engagement)
+
+# 查看結果
+head(political_engagement)
+
+```
+
+```{r}
+data2 <- cbind(data1,political_engagement$engagement_score)
+data2 <- data2[,c(-4,-5,-6,-7,-8,-9,-10,-11)]
+head(data2)
+```
+
+```{r}
+# 檢查是否有過度離散
+mean_engagement <- mean(political_engagement$engagement_score)
+var_engagement <- var(political_engagement$engagement_score)
+print(mean_engagement)
+print(var_engagement)
+
+# 如果方差遠大於平均，則考慮使用負二項回歸
+if (var_engagement > mean_engagement) {
+  print("過度離散存在，考慮使用負二項回歸。")
+}
+# 如果過度離散存在，則使用 MASS 庫進行負二項回歸
+if (var_engagement > mean_engagement) {
+  library(MASS)
+  glm_negbin <- glm.nb(political_engagement$engagement_score ~ v6 + v7 + v8 + v1, data = data2)
+  summary(glm_negbin)
+}
+
+```
+
+根據結果，您的負二項回歸模型在解釋受訪者的「政治熱衷程度」上提供了一些顯著的發現，並表明過度離散存在，這使得負二項回歸成為更合適的模型。
+
+### 模型結果解釋：
+
+#### 1. **截距（Intercept）：**
+
+-   `Estimate = -1.07825`，表示在所有自變數（年齡、教育程度、性別、地區）都是參考組的情況下，預期的政治熱衷程度的對數值為 -1.07825，轉換成原始單位後相當於參與度較低。
+
+#### 2. **年齡（v6）：**
+
+-   **30-39歲** (`Estimate = 0.77007`, `p = 0.014506`)：這個年齡組的政治熱衷程度顯著高於參考組（\<30歲），且與其他年齡組相比，較年輕族群政治熱衷程度低於中年族群。
+-   **40-49歲** (`Estimate = 0.89173`, `p = 0.002213`)：這個年齡組對政治的熱衷程度顯著高於參考組。
+-   **50-59歲** (`Estimate = 1.01004`, `p = 0.000359`)：該年齡組顯示出顯著更高的政治熱衷程度。
+-   **60歲及以上** (`Estimate = 0.93793`, `p = 0.000782`)：同樣顯示出高於參考組的政治參與度，且非常顯著。
+
+#### 3. **教育程度（v7）：**
+
+-   **初中、國中**：不顯著 (`p = 0.115855`)，但高於參考組（小學及以下）。
+-   **高中、高職** (`Estimate = 0.50668`, `p = 0.000123`)：顯示出顯著高於低教育程度的政治熱衷程度。
+-   **專科** (`Estimate = 0.51789`, `p = 0.001201`)：比低教育程度顯著更高的政治熱衷程度。
+-   **大學以上** (`Estimate = 0.50471`, `p = 0.000315`)：政治參與顯著較高。
+
+#### 4. **性別（v8）：**
+
+-   **女性** (`Estimate = -0.19371`, `p = 0.018749`)：性別對政治熱衷程度有顯著影響，女性的參與度顯著低於男性。
+
+#### 5. **地區（v1）：**
+
+-   **中西區** (`Estimate = -0.14018`, `p = 0.102753`)：地區對政治熱衷程度的影響不顯著（p值略大於0.05），因此可能與其他地區相比，差異並不顯著。
+
+### 模型診斷：
+
+-   模型的**AIC**為 4584.9，這是一個衡量模型擬合優劣的指標，數值越小代表模型越好。
+-   **Null deviance** 與 **Residual deviance** 表示模型擬合的情況，較小的 Residual deviance 表明模型能夠較好地解釋數據。
+-   **Theta = 0.6259** 表示該負二項回歸的過度離散參數，數值越低表明數據的過度離散越大。
+
+### 結論：
+
+從結果來看，年齡、教育程度和性別對政治熱衷程度有顯著影響。具體來說，年齡越大，受訪者越傾向於對政治有更高的參與度；教育程度越高的人也傾向於更多地參與政治；而女性在這項研究中表現出較低的政治參與度。地區變數（中西區）對政治熱衷程度的影響不顯著。
+
