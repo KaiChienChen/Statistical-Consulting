@@ -13,14 +13,79 @@ format:
     toc-depth: 1
 execute: 
   echo: true
+
 ---
 
-# Introduction
+# 簡介
 
-# Johansen Test
+-   **共整合**（Cointegration）用於分析非平穩時間序列之間的長期關係。
+-   常見於 **經濟學** 和 **金融學** 中。
+-   範例：**購買力平價（PPP）** 與匯率。
 
--   **Johansen Test** is used to detect multiple cointegrating relationships.
--   Does not require pre-specifying the number of cointegrating vectors.
+## 時間序列與 I(1) 序列
+
+-   **時間序列**：隨時間收集的數據點序列。
+-   **I(1) 序列**：一階差分後成為定態的序列。
+    -   例如：股票價格、GDP。
+
+## I(1) 序列繪圖
+
+```{r}
+#| code-fold: TRUE
+# 1. 生成一個非平穩的 I(1) 時間序列 (隨機漫步)
+set.seed(123)  # 設置隨機種子，保證結果可重現
+n <- 100
+I1_series <- cumsum(rnorm(n))  # 累積隨機數生成 I(1) 序列
+
+# 2. 對時間序列進行一階差分，應該變為定態
+diff_series <- diff(I1_series)
+
+# 3. 繪圖來比較原始 I(1) 序列和一階差分後的定態序列
+plot(I1_series, type = 'l', col = 'blue', main = "I(1) 序列（非平穩）", ylab = "值")
+lines(diff_series, type = 'l', col = 'red')
+legend("topleft",lty = 1,col = c("blue","red"),legend = c("I(1)","一階差分後的 I(1)"))
+```
+
+## 範例
+
+**購買力平價（PPP）** PPP 令 $q_t$ 為實際匯率的對數，$s_t$ 表示名義匯率的對數，$p_t$ 和 $p^*_{t}$ 分別表示國內與國外物價水平的對數。則有 $$q_t = s_t + p^*_{t}-p_t$$
+
+# 什麼是共整合？
+
+-   共整合：當兩個或多個 $I(1)$ 序列有一個**穩定的長期關係**時。
+-   數學上，若存在一個向量 $A$ 使得：$A' y_t \sim I(0)$，其中 $y_t$ 是 I(1) 變量的向量。
+
+# 共整合的限制
+
+-   共整合假設 **長期穩定性**，但這在現實中不一定成立。
+-   對於複雜數據，可能需要其他方法，例如 **非線性模型**。
+
+# 誤差修正模型 {.smaller}
+
+-   ECM 描述了共整合序列的**短期效果**和**長期效應**。
+
+-   模型為：$\Delta y_t = \beta_0 \Delta Z_t + (\varphi - 1)[y_{t-1}-(\frac {\beta_0 + \beta_1}{1-\varphi})Z_{t-1}]+\epsilon_t$
+
+-   其中：$$y_t = \varphi y_{t-1}+\beta_0 Z_t+\beta_1 Z_{t-1}+ \epsilon_t$$ $Z_t = Z_{t-1}+u_t$ 其中 $$u_t \sim N(0,\sigma^2)$$
+
+# Engle-Granger 兩步驟法 (步驟 1)
+
+1.  假設我們有兩個時間序列 $y_t$ 和 $z_t$。
+
+2.  估計共整合：$$y_t = \beta_{0} + \beta_{1}z_{t} + e_t $$
+
+3.  對 $\hat{e_t}$ 進行 ADF 檢驗：$$ \Delta \hat{e} = a_0 +a_{1}\hat{e_{t-1}} + \sum_{i=1}^{n}a_{i+1}\Delta \hat{e_{t-i}} + \epsilon_t $$
+
+# Engle-Granger 兩步驟法 (步驟 2)
+
+1. 零假設：
+  $H_0:a_1=0$
+  $H_1:a_1 < 0$
+2. 如果拒絕 $H_0$，則兩者存在共整合。
+
+# Johansen 檢驗
+
+-   **Johansen 檢驗** 用於檢測多個共整合關係。
 
 ## VAR(p) 模型與 VECM 轉換
 
@@ -128,9 +193,6 @@ $$
 # Cointegration in R
 
 -   **R package**: `urca` for conducting the Johansen test.
--   Example of conducting Johansen test on simulated data.
-
-
 
 # R Code Example
 
@@ -138,8 +200,8 @@ $$
 
 ```{r, message=FALSE}
 # 安裝必要packages
+# install.packages("vars")
 library(urca)
-library(forecast)
 library(tidyverse)
 library(tseries)
 library(quantmod)
@@ -226,6 +288,7 @@ var_select$selection
 ## 7. Johansen Cointegration Test
 
 ```{r}
+#| code-fold: FALSE
 # Johansen 共整合檢定
 jotest.t <- ca.jo(data.frame(ewaAdj, ewcAdj, igeAdj), type="trace", K=3, ecdet="none", spec="longrun")
 summary(jotest.t)
@@ -234,6 +297,7 @@ summary(jotest.t)
 ---
 
 ```{r}
+#| code-fold: FALSE
 jotest.m <- ca.jo(data.frame(ewaAdj, ewcAdj, igeAdj), type="eigen", K=3, ecdet="none", spec="longrun")
 summary(jotest.m)
 ```
@@ -241,6 +305,7 @@ summary(jotest.m)
 ## 8. Calculate and Plot Cointegrated Relationship
 
 ```{r}
+#| code-fold: FALSE
 # 提取共整合係數
 alpha1 <- -0.8294165
 alpha2 <-  0.1389800
@@ -265,7 +330,8 @@ kpss.test(CI)
 
 ## 10. Plot All Series and Cointegration
 
-```{r,echo=FALSE}
+```{r}
+#| code-fold: TRUE
 # 繪製所有時間序列和共整合序列
 plot(ewaAdj, type = "l", col = "darkgreen", lwd = 2, ylim = c(-3, 36),
      main = "Adjusted Closing Prices of ETFs (EWA, EWC, IGE)",
@@ -299,21 +365,32 @@ legend("topright", legend = c("EWA - Australia", "EWC - Canada", "IGE - North Am
 
 - 因此，trace 檢定和 max 檢定的不同結果表明數據中可能存在某些微弱的共整合結構，但其顯著性並非在每個檢定下都能確認。
 
-# 共整合的應用
+# 結論{.smaller}
 
--   廣泛應用於：
-    -   **經濟學**：消費與收入之間的長期關係。
-    -   **金融學**：股價與利率之間的關係。
 
-# 共整合的限制
+| **比較項目**                 | **Johansen 檢定**                             | **Engle-Granger 兩步驟法**                     |
+|------------------------------|-----------------------------------------------|-----------------------------------------------|
+| **目的**                     | 檢驗多變量系統中是否存在共整合關係                | 檢驗雙變量系統中的共整合關係                     |
+| **模型形式**                 | 向量自回歸 (VAR) 模型                              | 兩步驟：第一步回歸檢驗單根，第二步檢驗誤差項的單根性   |
+| **適用變數數量**             | 多變量（可檢驗多個變數間的共整合關係）              | 雙變量（通常僅限於檢驗兩個變數間的共整合）           |
+| **優點**                     | 能同時檢驗多個共整合關係，適用於多變量系統             | 簡單易用，適合雙變量檢驗                              |
+| **缺點**                     | 複雜且需要更大的樣本量，難度較高                       | 僅限於兩個變數，可能忽略多變量之間的共整合關係           |
+| **適用條件**                 | 系統中的變數都需為同階整合                         | 變數必須是同階單根過程                                  |
 
--   共整合假設 **長期穩定性**，但這在現實中不一定成立。
--   對於複雜數據，可能需要其他方法，例如 **非線性模型**。
+---
 
-# 結論
+| **比較項目**                 | **Trace Test**                                | **Max Test**                                  |
+|------------------------------|-----------------------------------------------|-----------------------------------------------|
+| **目標**                     | 檢驗在系統中是否存在至少 $r$ 個共整合向量         | 檢驗系統中是否存在精確 $r$ 個共整合向量            |
+| **統計量**                   | $-T \sum_{i=r+1}^{k} \ln(1 - \lambda_i)$      | $-T \ln(1 - \lambda_{r+1})$                   |
+| **解釋方式**                 | 檢驗所有特徵值的總和 | 主要關注最大特徵值，檢驗是否存在一個新的共整合關係     |
+| **檢驗結果的靈敏度**         | 通常對多個共整合關係的檢測較為靈敏                 | 主要關注單一共整合關係的變化，較為精細                |
 
--   **共整合**在分析非平穩時間序列中至關重要。
--   應用範圍包括 **宏觀經濟模型**、**金融時間序列**和 **預測**。
--   未來的研究可以探索 **非線性共整合**模型。 
+# 參考資料和markdown
+
+- 林常青教授計量經濟(二)講義:Time Series Analysis (3): Spurious regression and Cointegration
+- 時間序列分析: 總體經濟與財務金融之應用 / 陳旭昇 著
+- https://www.quantstart.com/articles/Johansen-Test-for-Cointegrating-Time-Series-Analysis-in-R/
+- [https://github.com/KaiChienChen/Statistical-Consulting/blob/main/test_presentation.qmd](https://github.com/KaiChienChen/Statistical-Consulting/blob/main/test_presentation.qmd)
 
 # END
