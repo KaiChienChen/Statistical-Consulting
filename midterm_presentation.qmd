@@ -63,7 +63,6 @@ $$
 # 共整合的限制
 
 -   共整合假設 **長期穩定性**，但這在現實中不一定成立。
--   對於複雜數據，可能需要其他方法，例如 **非線性模型**。
 
 # 誤差修正模型 {.smaller}
 
@@ -335,6 +334,7 @@ residuals <- as.matrix(data.frame(ewaAdj, ewcAdj, igeAdj)) %*% cointegration_vec
 # ADF 檢定殘差是否平穩
 adf_test <- ur.df(residuals, type = "none", lags = 1)
 summary(adf_test)
+PP.test(CI)
 ```
 
 
@@ -433,6 +433,6 @@ adf.test(s)
 - 林常青教授計量經濟(二)講義:Time Series Analysis (3): Spurious regression and Cointegration
 - 時間序列分析: 總體經濟與財務金融之應用 / 陳旭昇 著
 - https://www.quantstart.com/articles/Johansen-Test-for-Cointegrating-Time-Series-Analysis-in-R/
-- [https://github.com/KaiChienChen/Statistical-Consulting/blob/main/test_presentation.qmd](https://github.com/KaiChienChen/Statistical-Consulting/blob/main/test_presentation.qmd)
+- [https://github.com/KaiChienChen/Statistical-Consulting/blob/main/midterm_presentation.qmd](https://github.com/KaiChienChen/Statistical-Consulting/blob/main/midterm_presentation.qmd)
 
 # END
