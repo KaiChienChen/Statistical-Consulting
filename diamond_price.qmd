@@ -1,0 +1,190 @@
+---
+title: "HW"
+subtitle: "Diamond Prices2022"
+date: today
+author: H24101222_陳凱騫
+format:
+ pdf:
+    include-in-header:
+      - text: |
+         \usepackage{setspace,relsize}
+         \usepackage{geometry}
+         \geometry{verbose,tmargin=2.5cm,bmargin=2.5cm,lmargin=2.5cm,rmargin=2.5cm}
+         \setmonofont{Microsoft JhengHei UI}  
+mainfont: "Microsoft JhengHei UI"
+# mainfont: "Microsoft JhengHei Bold"
+toc: true
+documentclass: article
+pdf-engine: xelatex
+execute:
+  tidy: true
+  echo: true
+  warning: false
+  message: false
+---
+
+# Loading data
+```{r}
+library(knitr)
+data <- read.csv("Diamonds Prices2022.csv")
+kable(head(data), caption= "A table of head of dataset")
+```
+
+# Summary Statistics
+
+```{r}
+#| output: asis
+library(Hmisc)
+latex(describe(data), file = "", caption.placement = "top")
+```
+
+從以上之EDA我們可知其類別型資料分別為cut、color、clarity，而數值型分別為caret、depth、table、price、x、y、z。
+
+# Missing value
+
+```{r}
+#| output: asis
+library(DataExplorer)
+plot_missing(data)
+```
+
+從上圖可知並未有missing data在這個資料集中。
+
+```{r}
+library(ggplot2)
+# Remove the unnecessary X column and check for zero values in dimensions
+diamonds_data <- data
+diamonds_data$X <- NULL
+# Remove rows with zero dimensions (likely errors)
+diamonds_clean <- diamonds_data
+
+# Create correlation plot for numerical variables
+library(corrplot)
+numerical_vars <- diamonds_clean[, c("carat", "depth", "table", "price", "x", "y", "z")]
+correlation_matrix <- cor(numerical_vars)
+corrplot(correlation_matrix, method = "color", type = "upper", 
+         addCoef.col = "black", number.cex = 0.7)
+```
+
+- Correlation matrix showing strong relationships between size metrics (x,y,z) and price
+
+```{r}
+# Create price distribution plot
+ggplot(diamonds_clean, aes(x = price)) +
+  geom_histogram(fill = "blue", alpha = 0.5) +
+  theme_minimal() +
+  labs(title = "Distribution of Diamond Prices",
+       x = "Price", y = "Count")
+```
+
+- Price distribution is right-skewed
+
+```{r}
+# Create scatter plot of carat vs price with cut color
+ggplot(diamonds_clean, aes(x = carat, y = price, color = cut)) +
+  geom_point(alpha = 0.5) +
+  theme_minimal() +
+  labs(title = "Price vs Carat by Cut",
+       x = "Carat", y = "Price")
+```
+
+```{r}
+library(caret)
+# Set seed for reproducibility
+set.seed(123)
+
+# Split the data into training and testing sets
+trainIndex <- createDataPartition(diamonds_clean$price, p = 0.8, 
+                                  list = FALSE, 
+                                  times = 1)
+
+diamonds_train <- diamonds_clean[trainIndex, ]
+diamonds_test <- diamonds_clean[-trainIndex, ]
+
+# Build the linear regression model
+lm_model <- lm(price ~ carat + cut + color + clarity + depth + table + x + y + z, 
+               data = diamonds_train)
+
+# Summarize the model
+summary(lm_model)
+```
+
+The linear regression model has been successfully built, showing a strong fit with an adjusted $R^{2}$ of 0.9197, indicating that the model explains approximately 92% of the variance in diamond prices. Now, let's evaluate the model's performance on the test dataset.
+
+```{r}
+# Predict prices on the test set
+predictions <- predict(lm_model, newdata = diamonds_test)
+
+# Calculate performance metrics
+mse <- mean((predictions - diamonds_test$price)^2)
+rmse <- sqrt(mse)
+
+# Print the RMSE
+print(paste('Root Mean Squared Error (RMSE):', round(rmse, 2)))
+```
+
+The linear regression model shows strong predictive power with an R-squared of 0.92 and RMSE of 1,104. Key findings:
+
+- Carat has the strongest positive effect on price
+- Higher clarity grades (IF, VVS1, VVS2) significantly increase price
+- Color D (reference level) commands the highest prices
+- Cut quality also impacts price, with Ideal cut having the highest premium
+
+```{r}
+# Plot residuals to check for patterns
+library(ggplot2)
+residuals <- diamonds_test$price - predictions
+
+# Residual plot
+residual_plot <- ggplot(data = diamonds_test, aes(x = predictions, y = residuals)) +
+  geom_point(alpha = 0.5) +
+  geom_hline(yintercept = 0, color = "red", linetype = "dashed") +
+  theme_minimal() +
+  labs(title = "Residuals vs Fitted Values",
+       x = "Fitted Values",
+       y = "Residuals")
+
+# Display the plot
+print(residual_plot)
+```
+
+By the residual plot, we think that polynomial regression might fit the data. Besides, because we know x, y, and z are highly correlation, we check whether the multicollinearity exist.
+
+```{r}
+# Check VIF for multicollinearity
+# install.packages("car")
+library(car)
+vif_model <- lm(price ~ carat + x + y + z, data = diamonds_clean)
+vif(vif_model)
+
+# Try polynomial terms for carat
+poly_model <- lm(price ~ poly(carat, 2) + cut + color + clarity + depth + table + x + y + z, 
+                 data = diamonds_train)
+
+# Compare R-squared values
+print("Original R-squared:")
+print(summary(lm_model)$r.squared)
+print("Polynomial R-squared:")
+print(summary(poly_model)$r.squared)
+# Calculate VIF for the model to check for multicollinearity
+vif(poly_model)
+```
+
+```{r}
+# Create a new variable for volume
+# Volume is calculated as x * y * z
+
+diamonds_clean$volume <- diamonds_clean$x * diamonds_clean$y * diamonds_clean$z
+# Calculate volume for both training and testing datasets
+diamonds_train$volume <- diamonds_train$x * diamonds_train$y * diamonds_train$z
+diamonds_test$volume <- diamonds_test$x * diamonds_test$y * diamonds_test$z
+
+# Rebuild the linear regression model using the new volume variable
+lm_model_volume <- lm(price ~ carat + cut + color + clarity + depth + table + volume, 
+                      data = diamonds_train)
+
+# Summarize the new model
+summary(lm_model_volume)
+
+vif(lm_model_volume)
+```
