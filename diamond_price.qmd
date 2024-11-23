@@ -25,6 +25,7 @@ execute:
 
 # Loading data
 ```{r}
+library(ggplot2)
 library(knitr)
 data <- read.csv("Diamonds Prices2022.csv")
 kable(head(data), caption= "A table of head of dataset")
@@ -49,6 +50,27 @@ plot_missing(data)
 ```
 
 從上圖可知並未有missing data在這個資料集中。
+
+# Boxplot
+
+```{r}
+#Boxplot of Price by Cut
+ggplot(data, aes(x = cut, y = price)) +
+  geom_boxplot(fill = "orange") +
+  labs(title = "Boxplot of Price by Cut", x = "Cut", y = "Price (USD)")
+```
+```{r}
+ggplot(data, aes(x = color, y = price)) +
+  geom_boxplot(fill = "orange") +
+  labs(title = "Boxplot of Price by Color", x = "Color", y = "Price (USD)")
+```
+```{r}
+ggplot(data, aes(x = clarity, y = price)) +
+  geom_boxplot(fill = "orange") +
+  labs(title = "Boxplot of Price by Clarity", x = "Clarity", y = "Price (USD)")
+```
+
+都很右偏。
 
 ```{r}
 library(ggplot2)
@@ -78,6 +100,7 @@ ggplot(diamonds_clean, aes(x = price)) +
 ```
 
 - Price distribution is right-skewed
+- 之後取log
 
 ```{r}
 # Create scatter plot of carat vs price with cut color
@@ -87,6 +110,22 @@ ggplot(diamonds_clean, aes(x = carat, y = price, color = cut)) +
   labs(title = "Price vs Carat by Cut",
        x = "Carat", y = "Price")
 ```
+
+# encoding
+
+```{r}
+# 替換類別變數為數字編碼
+library(dplyr)
+diamonds_clean$cut <- recode(diamonds_clean$cut,Fair=1,Good=2,Ideal=3,Premium=4,`Very Good`=5)
+diamonds_clean$color <- recode(diamonds_clean$color,D=1,E=2,`F`=3,G=4,H=5,I=6,J=7)
+diamonds_clean$clarity <- recode(diamonds_clean$clarity,
+  I1 = 1, IF = 2, SI1 = 3, SI2 = 4, VS1 = 5, VS2 = 6, VVS1 = 7, VVS2 = 8
+)
+```
+
+- 將類別資料轉成數值
+
+# data fitting
 
 ```{r}
 library(caret)
@@ -99,17 +138,18 @@ trainIndex <- createDataPartition(diamonds_clean$price, p = 0.8,
                                   times = 1)
 
 diamonds_train <- diamonds_clean[trainIndex, ]
+
 diamonds_test <- diamonds_clean[-trainIndex, ]
 
 # Build the linear regression model
-lm_model <- lm(price ~ carat + cut + color + clarity + depth + table + x + y + z, 
+lm_model <- lm(log(price) ~ carat + cut + color + clarity + depth + table + x + y + z, 
                data = diamonds_train)
 
 # Summarize the model
 summary(lm_model)
 ```
 
-The linear regression model has been successfully built, showing a strong fit with an adjusted $R^{2}$ of 0.9197, indicating that the model explains approximately 92% of the variance in diamond prices. Now, let's evaluate the model's performance on the test dataset.
+The result shows a strong fit with an adjusted $R^{2}$ of 0.9452, indicating that the model explains approximately 94.52% of the variance in diamond prices.
 
 ```{r}
 # Predict prices on the test set
@@ -123,13 +163,10 @@ rmse <- sqrt(mse)
 print(paste('Root Mean Squared Error (RMSE):', round(rmse, 2)))
 ```
 
-The linear regression model shows strong predictive power with an R-squared of 0.92 and RMSE of 1,104. Key findings:
+The linear regression model shows strong predictive power with an R-squared of 0.94 and RMSE of 5552.98. Key findings:
 
-- Carat has the strongest positive effect on price
-- Higher clarity grades (IF, VVS1, VVS2) significantly increase price
-- Color D (reference level) commands the highest prices
-- Cut quality also impacts price, with Ideal cut having the highest premium
-
+- depth, cut, clarity, x, y, z got a significant positive coefficient meaning that when they increase one unit, the price will also increase.
+- color, caret and table got a  significant negative coefficient meaning that when they increase one unit, the price will also increase.
 ```{r}
 # Plot residuals to check for patterns
 library(ggplot2)
@@ -148,43 +185,18 @@ residual_plot <- ggplot(data = diamonds_test, aes(x = predictions, y = residuals
 print(residual_plot)
 ```
 
-By the residual plot, we think that polynomial regression might fit the data. Besides, because we know x, y, and z are highly correlation, we check whether the multicollinearity exist.
+By the residual plot, we think that non-linear regression might fit the data. Besides, because we know x, y, and z are highly correlation, we check whether the multicollinearity exist.
 
 ```{r}
 # Check VIF for multicollinearity
 # install.packages("car")
 library(car)
-vif_model <- lm(price ~ carat + x + y + z, data = diamonds_clean)
+vif_model <- lm(log(price) ~ carat + cut + color + clarity + depth + table + x + y + z, data = diamonds_train)
 vif(vif_model)
-
-# Try polynomial terms for carat
-poly_model <- lm(price ~ poly(carat, 2) + cut + color + clarity + depth + table + x + y + z, 
-                 data = diamonds_train)
 
 # Compare R-squared values
 print("Original R-squared:")
 print(summary(lm_model)$r.squared)
-print("Polynomial R-squared:")
-print(summary(poly_model)$r.squared)
 # Calculate VIF for the model to check for multicollinearity
-vif(poly_model)
 ```
 
-```{r}
-# Create a new variable for volume
-# Volume is calculated as x * y * z
-
-diamonds_clean$volume <- diamonds_clean$x * diamonds_clean$y * diamonds_clean$z
-# Calculate volume for both training and testing datasets
-diamonds_train$volume <- diamonds_train$x * diamonds_train$y * diamonds_train$z
-diamonds_test$volume <- diamonds_test$x * diamonds_test$y * diamonds_test$z
-
-# Rebuild the linear regression model using the new volume variable
-lm_model_volume <- lm(price ~ carat + cut + color + clarity + depth + table + volume, 
-                      data = diamonds_train)
-
-# Summarize the new model
-summary(lm_model_volume)
-
-vif(lm_model_volume)
-```
